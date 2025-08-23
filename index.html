@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Editor de Mapa Tático</title>
+    <style>
+        /* ... (todo o CSS anterior permanece igual) ... */
+        body { background-color: #1a1a1a; color: #f0f0f0; font-family: monospace; margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; }
+        header { text-align: center; padding: 10px; border-bottom: 2px solid #444; }
+        #main-content { display: flex; flex-grow: 1; overflow: hidden; }
+        #sidebar { width: 220px; padding: 15px; border-right: 2px solid #444; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+        #palette { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .palette-color { width: 35px; height: 35px; border: 2px solid #f0f0f0; cursor: pointer; transition: all 0.2s; }
+        .palette-color.selected { border-color: #00ffcc; transform: scale(1.2); box-shadow: 0 0 10px #00ffcc; }
+        #map-container { position: relative; /* Necessário para o menu de contexto */ flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; background-color: #111; }
+        canvas { border: 2px solid #f0f0f0; background-color: #000000; cursor: crosshair; }
+        #ui-controls { margin-top: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 15px; }
+        button, select { background-color: #333; color: #f0f0f0; border: 1px solid #555; padding: 8px 12px; cursor: pointer; font-family: monospace; }
+        button:hover, select:hover { background-color: #444; }
+        #clearMapButton { background-color: #8B0000; }
+        #clearMapButton:hover { background-color: #B22222; }
+        #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        #modal-content { background-color: #2a2a2a; padding: 20px; border: 2px solid #f0f0f0; border-radius: 5px; width: 80%; max-width: 600px; display: flex; flex-direction: column; gap: 10px; }
+        #modal-content textarea { width: 98%; height: 200px; background-color: #1a1a1a; color: #f0f0f0; border: 1px solid #555; font-family: monospace; resize: vertical; }
+
+        /* --- NOVO CSS para o menu de contexto de texto --- */
+        #text-context-menu {
+            position: absolute;
+            display: none; /* Começa escondido */
+            flex-direction: column;
+            background-color: #333;
+            border: 1px solid #f0f0f0;
+            border-radius: 4px;
+            z-index: 1001;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        #text-context-menu button {
+            width: 100%;
+            text-align: left;
+            border: none;
+            border-bottom: 1px solid #555;
+        }
+        #text-context-menu button:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Editor de Mapa Tático</h1>
+    </header>
+
+    <div id="main-content">
+        <aside id="sidebar">
+            <!-- Conteúdo da sidebar permanece o mesmo -->
+            <div>
+                <strong>Paleta de Cores</strong>
+                <div id="palette">
+                    <!-- Cores -->
+                    <div class="palette-color selected" data-color="#3a3a3a" style="background-color: #3a3a3a;"></div>
+                    <div class="palette-color" data-color="#696969" style="background-color: #696969;"></div>
+                    <div class="palette-color" data-color="#ffffff" style="background-color: #ffffff;"></div>
+                    <div class="palette-color" data-color="#000000" style="background-color: #000000;"></div>
+                    <div class="palette-color" data-color="#6b4226" style="background-color: #6b4226;"></div>
+                    <div class="palette-color" data-color="#B8860B" style="background-color: #B8860B;"></div>
+                    <div class="palette-color" data-color="#228B22" style="background-color: #228B22;"></div>
+                    <div class="palette-color" data-color="#006400" style="background-color: #006400;"></div>
+                    <div class="palette-color" data-color="#4682B4" style="background-color: #4682B4;"></div>
+                    <div class="palette-color" data-color="#000080" style="background-color: #000080;"></div>
+                    <div class="palette-color" data-color="#808080" style="background-color: #808080;"></div>
+                    <div class="palette-color" data-color="#C0C0C0" style="background-color: #C0C0C0;"></div>
+                    <div class="palette-color" data-color="#DC143C" style="background-color: #DC143C;"></div>
+                    <div class="palette-color" data-color="#FF4500" style="background-color: #FF4500;"></div>
+                    <div class="palette-color" data-color="#FFD700" style="background-color: #FFD700;"></div>
+                    <div class="palette-color" data-color="#c9b12e" style="background-color: #c9b12e;"></div>
+                    <div class="palette-color" data-color="#9400D3" style="background-color: #9400D3;"></div>
+                    <div class="palette-color" data-color="#FF1493" style="background-color: #FF1493;"></div>
+                    <div class="palette-color" data-color="#00CED1" style="background-color: #00CED1;"></div>
+                    <div class="palette-color" data-color="#32CD32" style="background-color: #32CD32;"></div>
+                    <div class="palette-color" data-color="#8A2BE2" style="background-color: #8A2BE2;"></div>
+                    <div class="palette-color" data-color="#FF69B4" style="background-color: #FF69B4;"></div>
+                    <div class="palette-color" data-color="#FFA500" style="background-color: #FFA500;"></div>
+                    <div class="palette-color" data-color="#FF0000" style="background-color: #FF0000;"></div>
+                </div>
+            </div>
+        </aside>
+
+        <main id="map-container">
+            <canvas id="mapCanvas"></canvas>
+            <div id="ui-controls">
+                <div>
+                    <label for="modeSelector">Modo:</label>
+                    <select id="modeSelector">
+                        <option value="paint">Pintar Quadrado</option>
+                        <option value="paint_triangle">Pintar Triângulo</option>
+                        <option value="paint_circle">Pintar Círculo</option>
+                        <option value="paint_x">Pintar X</option>
+                        <option value="pen">Caneta</option>
+                        <option value="text">Texto</option> <!-- Modo Mover foi removido -->
+                        <option value="line">Desenhar Reta</option>
+                        <option value="rectangle">Desenhar Retângulo</option>
+                        <option value="square">Desenhar Quadrado</option>
+                        <option value="circle">Desenhar Círculo</option>
+                        <option value="background">Cor de Fundo</option>
+                    </select>
+                </div>
+                <div id="eraser-controls">
+                    <label>Borracha:</label>
+                    <button data-size="8">P</button>
+                    <button data-size="16">M</button>
+                    <button data-size="32">G</button>
+                </div>
+                <div>
+                    <button id="saveMapButton">Salvar Mapa</button>
+                    <button id="loadMapButton">Carregar Mapa</button>
+                    <button id="clearMapButton">Limpar Mapa</button>
+                </div>
+            </div>
+            <!-- NOVO MENU DE CONTEXTO -->
+            <div id="text-context-menu">
+                <button id="edit-text-btn">Editar</button>
+                <button id="copy-text-btn">Copiar</button>
+                <button id="move-text-btn">Mover</button>
+                <button id="delete-text-btn">Apagar</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/map-tool.js"></script>
+
+</body>
+</html>
